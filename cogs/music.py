@@ -62,5 +62,10 @@ class Music(commands.Cog):
         """Toggles looping of the entire queue"""
         await self.music_service.loop_queue(ctx)
 
+    @commands.command(name='add')
+    async def add(self, ctx, *, query):
+        """Searches for a song and adds it to the queue"""
+        await self.music_service.search_and_add_to_queue(ctx, query)
+
 async def setup(bot):
     await bot.add_cog(Music(bot))

@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from utils.ytdl import YTDLSource
 
+
 class MusicService:
     def __init__(self, bot):
         self.bot = bot
@@ -64,7 +65,8 @@ class MusicService:
                 await ctx.send(embed=embed)
                 return
 
-            search_list = "\n".join([f"{idx + 1}. {entry['title']}" for idx, entry in enumerate(self.song_search_results)])
+            search_list = "\n".join(
+                [f"{idx + 1}. {entry['title']}" for idx, entry in enumerate(self.song_search_results)])
             embed = discord.Embed(
                 title="Search Results",
                 description=f"Select a song by clicking its number:\n{search_list}",
@@ -72,7 +74,8 @@ class MusicService:
             )
             view = discord.ui.View()
             for idx in range(len(self.song_search_results)):
-                view.add_item(discord.ui.Button(label=str(idx + 1), style=discord.ButtonStyle.primary, custom_id=str(idx)))
+                view.add_item(
+                    discord.ui.Button(label=str(idx + 1), style=discord.ButtonStyle.primary, custom_id=str(idx)))
 
             message = await ctx.send(embed=embed, view=view)
 
@@ -82,7 +85,8 @@ class MusicService:
             try:
                 interaction = await self.bot.wait_for('interaction', check=check, timeout=30.0)
                 selected_idx = int(interaction.data['custom_id'])
-                await interaction.response.send_message(f"You selected: {self.song_search_results[selected_idx]['title']}")
+                await interaction.response.send_message(
+                    f"You selected: {self.song_search_results[selected_idx]['title']}")
                 await self.play(ctx, self.song_search_results[selected_idx]['url'])
             except asyncio.TimeoutError:
                 embed = discord.Embed(
@@ -237,3 +241,72 @@ class MusicService:
             color=discord.Color.green()
         )
         await ctx.send(embed=embed)
+
+    async def search_and_add_to_queue(self, ctx, query):
+        if ctx.author.voice is None:
+            embed = discord.Embed(
+                title="Error",
+                description="You need to be in a voice channel to search for and add songs to the queue.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+
+        async with ctx.typing():
+            self.song_search_results = await YTDLSource.search(query, loop=self.bot.loop)
+            if not self.song_search_results:
+                embed = discord.Embed(
+                    title="No Results Found",
+                    description=f"No results found for `{query}`.",
+                    color=discord.Color.red()
+                )
+                await ctx.send(embed=embed)
+                return
+
+            search_list = "\n".join(
+                [f"{idx + 1}. {entry['title']}" for idx, entry in enumerate(self.song_search_results)])
+            embed = discord.Embed(
+                title="Search Results",
+                description=f"Select a song by clicking its number:\n{search_list}",
+                color=discord.Color.blue()
+            )
+            view = discord.ui.View()
+            for idx in range(len(self.song_search_results)):
+                view.add_item(
+                    discord.ui.Button(label=str(idx + 1), style=discord.ButtonStyle.primary, custom_id=str(idx)))
+
+            message = await ctx.send(embed=embed, view=view)
+
+            def check(interaction):
+                return interaction.message.id == message.id and interaction.user == ctx.author
+
+            try:
+                interaction = await self.bot.wait_for('interaction', check=check, timeout=30.0)
+                selected_idx = int(interaction.data['custom_id'])
+                await interaction.response.send_message(
+                    f"You selected: {self.song_search_results[selected_idx]['title']}")
+                await self.add_to_queue(ctx, self.song_search_results[selected_idx]['url'])
+            except asyncio.TimeoutError:
+                embed = discord.Embed(
+                    title="Timeout",
+                    description="You took too long to respond.",
+                    color=discord.Color.red()
+                )
+                await ctx.send(embed=embed)
+                await message.delete()
+
+    async def add_to_queue(self, ctx, url):
+        async with ctx.typing():
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            self.queue.append(player)
+
+            embed = discord.Embed(
+                title="Added to Queue",
+                description=player.title,
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="Duration", value=str(player.data.get('duration')), inline=True)
+            embed.add_field(name="Uploader", value=player.data.get('uploader'), inline=True)
+            embed.set_thumbnail(url=player.data.get('thumbnail'))
+
+            await ctx.send(embed=embed)
