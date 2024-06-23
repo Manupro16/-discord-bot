@@ -31,7 +31,7 @@ async def on_command_error(ctx, error):
         await ctx.send("That command does not exist. Please use a valid command.")
     else:
         print(error)
-        await ctx.send(f"An error occurred while processing the command: {error}.")
+        await ctx.send(f"An error occurred while processing the command.")
 
 # List of initial cogs to load
 initial_extensions = ['cogs.music', 'cogs.general']

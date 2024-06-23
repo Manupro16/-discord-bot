@@ -11,8 +11,8 @@ class General(commands.Cog):
         """Responds with 'Pong!'"""
         await ctx.send('Pong!')
 
-    @commands.command(name='custom_help')
-    async def custom_help(self, ctx):
+    @commands.command(name='help')
+    async def help(self, ctx):
         """Provides help information for commands"""
         help_text = """
         **Commands:**
