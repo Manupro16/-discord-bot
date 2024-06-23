@@ -1,6 +1,7 @@
 import asyncio
 
 import discord
+from discord.ext import commands
 from utils.ytdl import YTDLSource
 
 class MusicService:
@@ -8,6 +9,9 @@ class MusicService:
         self.bot = bot
         self.queue = []
         self.song_search_results = []
+        self.current_song = None
+        self.loop = False
+        self.loop_queue = False
 
     async def join(self, ctx):
         if ctx.author.voice:
@@ -29,6 +33,8 @@ class MusicService:
 
     async def leave(self, ctx):
         self.queue.clear()
+        self.loop = False
+        self.loop_queue = False
         await ctx.voice_client.disconnect()
         embed = discord.Embed(
             title="Left Voice Channel",
@@ -91,6 +97,7 @@ class MusicService:
         async with ctx.typing():
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
             self.queue.append(player)
+            self.current_song = player
 
             embed = discord.Embed(
                 title="Now Playing",
@@ -110,6 +117,7 @@ class MusicService:
         if self.queue:
             player = self.queue.pop(0)
             ctx.voice_client.play(player, after=lambda e: self.bot.loop.create_task(self.play_next(ctx)))
+            self.current_song = player
             embed = discord.Embed(
                 title="Now Playing",
                 description=player.title,
@@ -118,9 +126,29 @@ class MusicService:
             await ctx.send(embed=embed)
 
     async def play_next(self, ctx):
-        if self.queue:
+        if self.loop:
+            ctx.voice_client.play(self.current_song, after=lambda e: self.bot.loop.create_task(self.play_next(ctx)))
+            embed = discord.Embed(
+                title="Looping",
+                description=f"Looping current song: {self.current_song.title}",
+                color=discord.Color.green()
+            )
+            await ctx.send(embed=embed)
+        elif self.loop_queue and self.queue:
+            self.queue.append(self.current_song)
             player = self.queue.pop(0)
             ctx.voice_client.play(player, after=lambda e: self.bot.loop.create_task(self.play_next(ctx)))
+            self.current_song = player
+            embed = discord.Embed(
+                title="Now Playing",
+                description=player.title,
+                color=discord.Color.green()
+            )
+            await ctx.send(embed=embed)
+        elif self.queue:
+            player = self.queue.pop(0)
+            ctx.voice_client.play(player, after=lambda e: self.bot.loop.create_task(self.play_next(ctx)))
+            self.current_song = player
             embed = discord.Embed(
                 title="Now Playing",
                 description=player.title,
@@ -155,6 +183,8 @@ class MusicService:
 
     async def stop(self, ctx):
         self.queue.clear()
+        self.loop = False
+        self.loop_queue = False
         ctx.voice_client.stop()
         embed = discord.Embed(
             title="Stopped",
@@ -190,3 +220,20 @@ class MusicService:
             )
             await ctx.send(embed=embed)
 
+    async def loop_song(self, ctx):
+        self.loop = not self.loop
+        embed = discord.Embed(
+            title="Looping",
+            description=f"Looping is now {'enabled' if self.loop else 'disabled'}.",
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)
+
+    async def loop_queue(self, ctx):
+        self.loop_queue = not self.loop_queue
+        embed = discord.Embed(
+            title="Looping Queue",
+            description=f"Looping queue is now {'enabled' if self.loop_queue else 'disabled'}.",
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)

@@ -1,6 +1,6 @@
 from discord.ext import commands
+import discord
 from services.music_service import MusicService
-
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -52,6 +52,15 @@ class Music(commands.Cog):
         """Displays the current queue"""
         await self.music_service.queue(ctx)
 
+    @commands.command(name='loop')
+    async def loop(self, ctx):
+        """Toggles looping of the current song"""
+        await self.music_service.loop_song(ctx)
+
+    @commands.command(name='loopqueue')
+    async def loopqueue(self, ctx):
+        """Toggles looping of the entire queue"""
+        await self.music_service.loop_queue(ctx)
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
